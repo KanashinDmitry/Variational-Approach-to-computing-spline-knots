@@ -3,3 +3,4 @@
 *.xlsx
 *.ipynb
 /test
+/__pycache__
