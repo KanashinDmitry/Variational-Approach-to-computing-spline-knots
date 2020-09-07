@@ -13,8 +13,8 @@ class VariationalApproach:
         self.best_knots, self.lsq_spline, self.tol, self.cubic_spl_err = self.find_best_knots()
 
     degree = 3
-    Zero = 1.0e-12
     err_bound = 0
+    min_n = 3
 
     # algorithm
     def find_best_knots(self):
@@ -27,8 +27,7 @@ class VariationalApproach:
 
         ranks = self.rank_knots(cubic_spl, self.knots)
 
-        min_n = len(self.knots) // 10
-        knots, lsq_spline, err_spl = self.find_n_best_knots(cubic_spl, ranks, min_n)
+        knots, lsq_spline, err_spl = self.find_n_best_knots(cubic_spl, ranks)
 
         return knots, lsq_spline, err_spl, err_on_cubic_spl
 
@@ -47,7 +46,7 @@ class VariationalApproach:
         return ranks
 
     # step 3-5
-    def find_n_best_knots(self, init_spline, ranks, min_n):
+    def find_n_best_knots(self, init_spline, ranks):
         test_x = self.test_x
         knots = self.knots
         last_knot = len(knots) - 1
@@ -57,13 +56,10 @@ class VariationalApproach:
         lsq_spline = ()
         err_spl = 0
 
-        for num in range(3, max(last_knot, len(self.x))):
+        for num in range(self.min_n, max(last_knot, len(self.x))):
             indices = np.sort(indices_max[-num:][::-1])
 
-            new_knots = [knots[i] for i in indices if i != last_knot and i != 0]
-            # new_knots = [knots[i] for i in indices
-            #             if i != last_knot and i != 0 and abs(init_spline(knots[i], 1)) >= self.Zero]
-            new_knots = np.array(new_knots)
+            new_knots = np.array([knots[i] for i in indices if i != last_knot and i != 0])
 
             new_knots = np.r_[(self.x[0],) * (self.degree + 1)
                               , new_knots
