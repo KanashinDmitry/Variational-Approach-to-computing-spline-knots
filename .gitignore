@@ -2,5 +2,6 @@
 .ipynb_checkpoints/
 *.xlsx
 *.ipynb
-/test
+test/
+tests/
 __pycache__/

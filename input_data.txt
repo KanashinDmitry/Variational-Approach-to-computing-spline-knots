@@ -1,0 +1,21 @@
+fun cos_p_exp
+interval 0 1
+mesh uniform shishkin
+input_t list 
+input 17 33 65 129 257
+parameter
+Epsilon 0.01 0.001
+
+fun x_p_w
+interval 0 1
+mesh uniform shishkin
+input_t list 
+input 17 33 65 129 257
+parameter
+Epsilon 0.01 0.001
+
+fun runge
+interval -5 5
+mesh uniform
+input_t range
+input 17 101

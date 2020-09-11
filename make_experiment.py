@@ -2,6 +2,8 @@ from variational_approach import VariationalApproach
 import numpy as np
 from prettytable import PrettyTable
 from functions import Functions
+from file_ops import *
+import sys
 
 
 def make_uniform_mesh(left_b, right_b, step):
@@ -14,7 +16,7 @@ def make_partially_uniform_mesh(init_n_knots, left_b, right_b, eps):
     knots[0], knots[-1] = left_b, right_b
 
     alpha = 1
-    sigma = min(0.5, 2*eps * np.log(num_intervals) / alpha)
+    sigma = min(0.5, 2 * eps * np.log(num_intervals) / alpha)
 
     step = 2 * sigma / init_n_knots
     for i in range(0, init_n_knots - 2):
@@ -26,60 +28,79 @@ def make_partially_uniform_mesh(init_n_knots, left_b, right_b, eps):
     return knots
 
 
-def test_on_function(func, left_bound, right_bound, n_samples, init_n_knots, eps):
-    # x_samples = make_uniform_mesh(left_bound, right_bound, n_samples)
-    x_samples = make_partially_uniform_mesh(n_samples, left_bound, right_bound, eps)
+def test_on_function(func, left_bound, right_bound, mesh_type, n_samples, init_n_knots, eps):
+
+    if mesh_type == "uniform":
+        x_samples = make_uniform_mesh(left_bound, right_bound, n_samples)
+        knots = make_uniform_mesh(left_bound, right_bound, init_n_knots)
+    elif mesh_type == "shishkin":
+        x_samples = make_partially_uniform_mesh(n_samples, left_bound, right_bound, eps)
+        knots = make_partially_uniform_mesh(init_n_knots, left_bound, right_bound, eps)
+    else:
+        sys.exit("Incorrect mesh_type")
 
     test_x = np.linspace(left_bound, right_bound, 1000)
 
     y_samples = func(x_samples)
     test_y = func(test_x)
 
-    # knots = make_uniform_mesh(left_bound, right_bound, init_n_knots)
-    knots = make_partially_uniform_mesh(init_n_knots, left_bound, right_bound, eps)
-
     left_shift = np.array([(knots[i] - knots[i - 1]) / 2 for i in range(1, init_n_knots - 1)])
     right_shift = np.array([(knots[i + 1] - knots[i]) / 2 for i in range(1, init_n_knots - 1)])
 
     alg = VariationalApproach(x_samples, y_samples, knots, test_x, test_y, (left_shift, right_shift))
 
-    return len(alg.best_knots), alg.tol, alg.cubic_spl_err
+    return len(alg.best_knots), alg.lsq_err, alg.cubic_spl_err
 
 
-def write_results_txt(name, heading, data):
-    with open(name, 'w') as file:
-        file.write(heading)
-        file.write(data)
-
-
-def make_experience():
-    headers = ["Epsilon", "Num samples", "Initial num of knots", "Best num interior knots"
+def make_experience(fun_name, interval, mesh_type, input_d, param_name, param=None):
+    headers = ["Num samples", "Initial num of knots", "Best num interior knots"
                , "Cubic tolerance", "Error between cubic and lsq spline"]
-    file_names = ['results/shishkin mesh/cos_exp_results.txt', 'results/shishkin mesh/x_p_w_results.txt'
-                  , 'results/shishkin mesh/runge_results.txt']
-    names = ["cos_exp_results\n", "x_p_w_results\n", "runge_results\n"]
-
-    intervals = [(0, 1), (0, 1), (-5, 5), (0, 2 * np.pi), (-2, 2), (-3, 3)]
     fun = Functions()
-    functions = [fun.cos_p_exp, fun.x_p_w, fun.runge]
 
     table = PrettyTable(headers)
+    file_name = "results/" + mesh_type + " mesh/" + fun_name + "_" + str(param) + "_results.txt"
 
-    for i in range(len(functions)):
-        for num_samples in [2 ** i + 1 for i in range(4, 9)]:
-            init_num_knots = num_samples
-            for eps in [1.0e-2, 1.0e-3]:
-                fun.eps = eps
-                num_best_knots, tolerance, cubic_spl_err = test_on_function(functions[i], intervals[i][0]
-                                                                            , intervals[i][1], num_samples
-                                                                            , init_num_knots, eps)
+    meta_info = fun_name + " with " + param_name + "=" + str(param) + "\n"
 
-                table.add_row([eps, num_samples, init_num_knots, num_best_knots, cubic_spl_err, tolerance])
+    for num_samples in input_d:
+        init_num_knots = num_samples
+        if param is not None:
+            if param_name == "Epsilon":
+                fun.eps = param
 
-        write_results_txt(file_names[i], names[i], table.get_string())
+        function = fun.parse_func_name(fun_name)
+        num_best_knots, tolerance, cubic_spl_err = test_on_function(function, interval[0], interval[1]
+                                                                    , mesh_type, num_samples, init_num_knots
+                                                                    , fun.eps)
 
-        table.clear_rows()
+        table.add_row([num_samples, init_num_knots, num_best_knots, cubic_spl_err, tolerance])
+    write_results_txt(file_name, meta_info, table.get_string())
+
+    table.clear_rows()
 
 
 if __name__ == "__main__":
-    make_experience()
+    try:
+        file = open("input_data.txt", "r")
+    except IOError:
+        sys.exit("Cannot find the input data file")
+
+    experiment_input = ""
+    input_text = file.readlines()
+    for index, row in enumerate(input_text):
+        experiment_input += row
+
+        if row == "\n" or index == len(input_text) - 1:
+            non_empty_input = list(filter(lambda x: x != "", experiment_input.split("\n")))
+            fun_name, interval, mesh_types, input_d, param_name, params = parse_input(non_empty_input)
+
+            for mesh_type in mesh_types:
+                if params != "":
+                    for param in params:
+                        make_experience(fun_name, interval, mesh_type, input_d, param_name, param)
+                else:
+                    make_experience(fun_name, interval, mesh_type, input_d, param_name)
+
+            experiment_input = ""
+
+    file.close()

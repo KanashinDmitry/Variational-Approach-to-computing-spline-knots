@@ -8,12 +8,6 @@ class Functions:
     def runge(self, x):
         return 1 / (1 + x ** 2)
 
-    def sin_p_x(self, x):
-        return x + np.sin(3 * x)
-
-    def sin_p_x2(self, x):
-        return x ** 2 + np.sin(3 * x)
-
     def cos_p_exp(self, x):
         return np.cos(np.pi * x / 2) + np.exp(-x / self.eps)
 
@@ -22,3 +16,11 @@ class Functions:
             return np.exp(-var / self.eps)
 
         return x + (w(x) - w(1)) / (1 - w(1))
+
+    def parse_func_name(self, fun_name):
+        if fun_name == "cos_p_exp":
+            return self.cos_p_exp
+        elif fun_name == "x_p_w":
+            return self.x_p_w
+        elif fun_name == "runge":
+            return self.runge
